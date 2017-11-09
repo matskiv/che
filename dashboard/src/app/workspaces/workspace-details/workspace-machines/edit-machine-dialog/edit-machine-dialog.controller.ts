@@ -12,8 +12,7 @@
 import {CheEnvironmentRegistry} from '../../../../../components/api/environment/che-environment-registry.factory';
 import {EnvironmentManager} from '../../../../../components/api/environment/environment-manager';
 import {IEnvironmentManagerMachine} from '../../../../../components/api/environment/environment-manager-machine';
-import {StackValidationService} from '../../../../stacks/stack-details/stack-validation.service';
-import {IComposeRecipe} from '../../../../../components/api/environment/compose-parser';
+import {CheRecipeService} from '../../che-recipe.service';
 
 
 /**
@@ -25,7 +24,6 @@ import {IComposeRecipe} from '../../../../../components/api/environment/compose-
 export class EditMachineDialogController {
   errors: Array<string> = [];
   private $mdDialog: ng.material.IDialogService;
-  private stackValidationService: StackValidationService;
   private machineRAM: number;
   private machineRecipeScript: string;
   private machine: IEnvironmentManagerMachine;
@@ -36,7 +34,12 @@ export class EditMachineDialogController {
   private machineName: string;
   private usedMachinesNames: Array<string>;
   private environment: che.IWorkspaceEnvironment;
+  private copyEnvironment: che.IWorkspaceEnvironment;
   private editorMode: string;
+  /**
+   * Environment recipe service.
+   */
+  private cheRecipeService: CheRecipeService;
   /**
    * Callback which is called when workspace is changed.
    */
@@ -46,49 +49,74 @@ export class EditMachineDialogController {
    * Default constructor that is using resource
    * @ngInject for Dependency injection
    */
-  constructor($mdDialog: ng.material.IDialogService, cheEnvironmentRegistry: CheEnvironmentRegistry, stackValidationService: StackValidationService) {
+  constructor($mdDialog: ng.material.IDialogService,
+              cheEnvironmentRegistry: CheEnvironmentRegistry,
+              cheRecipeService: CheRecipeService) {
     this.$mdDialog = $mdDialog;
     this.cheEnvironmentRegistry = cheEnvironmentRegistry;
-    this.stackValidationService = stackValidationService;
+    this.cheRecipeService = cheRecipeService;
 
     this.isAdd = angular.isUndefined(this.machineName);
-    this.usedMachinesNames = Object.keys(this.environment.machines).filter((machineName: string) => {
+    this.copyEnvironment = angular.copy(this.environment);
+    this.usedMachinesNames = Object.keys(this.copyEnvironment.machines).filter((machineName: string) => {
       return this.isAdd || machineName !== this.machineName;
     });
 
-    this.environmentManager = this.cheEnvironmentRegistry.getEnvironmentManager(this.environment.recipe.type);
+    if (!this.copyEnvironment) {
+      return;
+    }
+    this.environmentManager = this.cheEnvironmentRegistry.getEnvironmentManager(cheRecipeService.getRecipeType(this.copyEnvironment.recipe));
+    if (!this.environmentManager) {
+      return;
+    }
+    this.editorMode = this.environmentManager.editorMode;
 
-    this.editorMode = this.isCompose() ? this.environmentManager.editorMode : 'application/json';
-
+    this.copyEnvironment = angular.copy(this.copyEnvironment);
     if (this.isAdd) {
-      if (!this.isCompose()) {
+      if (!cheRecipeService.isScalable(this.copyEnvironment.recipe)) {
         // we can add a new machine in case with compose only
-        this.cancel();
         return;
       }
-      this.machine = this.environmentManager.createNewDefaultMachine(this.environment);
-      this.machineName = angular.copy(this.machine.name);
+      this.machine = this.environmentManager.createNewDefaultMachine(this.copyEnvironment);
+      this.copyEnvironment = this.environmentManager.addMachine(this.copyEnvironment, this.machine);
     } else {
-      this.machine = angular.copy(this.environmentManager.getMachines(this.environment).find((machine: IEnvironmentManagerMachine) => {
+      this.machine = angular.copy(this.environmentManager.getMachines(this.copyEnvironment).find((machine: IEnvironmentManagerMachine) => {
         return machine.name === this.machineName;
       }));
     }
-    if (this.machine) {
-      this.copyRecipe = angular.copy(this.machine.recipe);
-      this._parseMachineRecipe();
-      this.machineRAM = this.isCompose() && this.machine.recipe.mem_limit ? parseInt(this.machine.recipe.mem_limit, 10) : 0;
+    if (!this.machine || !this.machine.recipe) {
+      return;
+    }
+    this.machineName = this.environmentManager.getMachineName(this.machine);
+    this.machineRAM = this.environmentManager.getMemoryLimit(this.machine);
+    this.copyRecipe = angular.copy(this.machine.recipe);
+    if (!this.updateMachineRAM()) {
+      this.parseMachineRecipe();
     }
   }
 
   /**
    * Update machine RAM.
+   *
+   * @returns {boolean}
    */
-  updateMachineRAM(): void {
-    if (!this.isCompose() || !this.machineRAM) {
-      return;
+  updateMachineRAM(): boolean {
+    if (!this.machineRAM) {
+      return false;
     }
-    this.machine.recipe.mem_limit = this.machineRAM;
-    this._parseMachineRecipe();
+    this.environmentManager.setMemoryLimit(this.machine, this.machineRAM);
+    this.parseMachineRecipe();
+
+    const machines = this.environmentManager.getMachines(this.copyEnvironment).map((machine: IEnvironmentManagerMachine) => {
+      if (machine.name === this.machine.name) {
+        machine.recipe = this.environmentManager.parseRecipe(this.machineRecipeScript);
+        this.machine = machine;
+      }
+      return machine;
+    });
+    this.copyEnvironment = this.environmentManager.getEnvironment(this.copyEnvironment, machines);
+
+    return true;
   }
 
   /**
@@ -97,16 +125,34 @@ export class EditMachineDialogController {
    * @returns {boolean}
    */
   isChange(): boolean {
-    return this.isAdd || this.machineName !== this.machine.name || !angular.equals(this.machine.recipe, this.copyRecipe);
+    if (this.isAdd) {
+      return true;
+    }
+    const machineName = this.environmentManager.getMachineName(this.machine);
+    if (this.machineName !== machineName) {
+      return true;
+    }
+    return !angular.equals(this.machine.recipe, this.copyRecipe);
   }
 
-  /**
-   * Returns true if the environment's recipe type is compose.
-   *
-   * @returns {boolean}
-   */
-  isCompose(): boolean {
-    return this.environmentManager.type === this.stackValidationService.COMPOSE;
+  onNameChange(newName: string): void {
+    const oldName = this.environmentManager.getMachineName(this.machine);
+    const machineName = this.machine.name.replace(new RegExp(`${oldName}$`), newName);
+    const environment = this.environmentManager.renameMachine(this.copyEnvironment, this.machine.name, newName);
+    const machines = this.environmentManager.getMachines(environment);
+    this.copyEnvironment = this.environmentManager.getEnvironment(environment, machines);
+    this.machine.name = machineName;
+    const machine = machines.find((machine: IEnvironmentManagerMachine) => {
+      return machine.name === machineName;
+    });
+    if (!machine || !machine.recipe) {
+      // return existing value
+      this.machineName = this.environmentManager.getMachineName(this.machine);
+      return;
+    }
+
+    this.machine = machine;
+    this.parseMachineRecipe();
   }
 
   /**
@@ -114,21 +160,10 @@ export class EditMachineDialogController {
    * @returns {che.IValidation}
    */
   isRecipeValid(): che.IValidation {
-    const recipeValidation = this._stringifyMachineRecipe();
+    const recipeValidation = this.stringifyMachineRecipe();
     if (!recipeValidation.isValid) {
       return recipeValidation;
     }
-    let recipe: che.IRecipe;
-    if (this.isCompose()) {
-      const recipeServices = jsyaml.load(this.environment.recipe.content);
-      recipeServices.services[this.machineName] = this.machine.recipe;
-      recipe = angular.copy(this.environment.recipe);
-      recipe.content = jsyaml.safeDump(recipeServices, {'indent': 1});
-    } else {
-      recipe = this.machine.recipe;
-    }
-
-    return this.stackValidationService.getRecipeValidation(recipe);
   }
 
   /**
@@ -151,67 +186,44 @@ export class EditMachineDialogController {
    * Update machine.
    */
   updateMachine(): void {
-    this._stringifyMachineRecipe();
-    if (this.isCompose()) {
-      if (this.isAdd) {
-        this.environment = this.environmentManager.addMachine(this.environment, this.machine);
-        if (this.machineRAM) {
-          const machine = this.environment.machines[this.machine.name];
-          if (machine.attributes && machine.attributes.memoryLimitBytes !==  this.machineRAM) {
-            delete  machine.attributes.memoryLimitBytes;
-          }
-        }
-      } else {
-        const mem_limit = 'mem_limit';
-        if (this.copyRecipe && this.copyRecipe[mem_limit] !== this.machine.recipe[mem_limit]) {
-          const machine = this.environment.machines[this.machine.name];
-          if (machine && machine.attributes && machine.attributes.memoryLimitBytes) {
-            delete  machine.attributes.memoryLimitBytes;
-          }
-        }
-        const recipe: IComposeRecipe = jsyaml.load(this.environment.recipe.content);
-        recipe.services[this.machine.name] = this.machine.recipe;
-        this.environment.recipe.content = jsyaml.safeDump(recipe, {'indent': 1});
-      }
-    } else {
-      this.environment.recipe = this.machine.recipe;
+    if (!this.stringifyMachineRecipe().isValid) {
+      return;
     }
-    if (!angular.equals(this.machineName, this.machine.name)) {
-      const environment = this.environmentManager.renameMachine(this.environment, this.machine.name, this.machineName);
-      const machines = this.environmentManager.getMachines(environment).map((machine: IEnvironmentManagerMachine) => {
-        if (machine.name === this.machineName) {
-          machine.recipe = this.machine.recipe;
-          machine.attributes = this.machine.attributes;
-        }
-        return machine;
-      });
-      this.environment = this.environmentManager.getEnvironment(environment, machines);
-    }
-
     if (angular.isFunction(this.onChange)) {
-      this.onChange(this.environment);
+      this.onChange(this.copyEnvironment);
     }
     this.$mdDialog.hide();
   }
 
-  _parseMachineRecipe(): void {
-    if (this.isCompose()) {
-      this.machineRecipeScript = jsyaml.safeDump(this.machine.recipe, {'indent': 1});
-    } else {
-      this.machineRecipeScript = angular.toJson(this.machine.recipe, true);
-    }
+  private parseMachineRecipe(): void {
+    this.machineRecipeScript = this.environmentManager.stringifyRecipe(this.machine.recipe);
   }
 
-  _stringifyMachineRecipe(): che.IValidation {
+  private stringifyMachineRecipe(): che.IValidation {
     try {
-      if (this.isCompose()) {
-        this.machine.recipe = jsyaml.load(this.machineRecipeScript);
-        if (this.machine.recipe.mem_limit) {
-          this.machineRAM = this.machine.recipe.mem_limit;
-        }
+      const newMachine = angular.copy(this.machine);
+      newMachine.recipe = this.environmentManager.parseRecipe(this.machineRecipeScript);
+      const newMachineName = this.environmentManager.getMachineName(newMachine);
+
+      let machineName: string;
+      let environment: che.IWorkspaceEnvironment;
+      if (this.machineName === newMachineName) {
+        environment = this.copyEnvironment;
+        machineName = this.machineName;
       } else {
-        this.machine.recipe = angular.fromJson(this.machineRecipeScript);
+        environment = this.environmentManager.renameMachine(this.copyEnvironment, this.machine.name, newMachineName);
+        machineName = this.machine.name.replace(this.environmentManager.getMachineName(this.machine), newMachineName);
       }
+      const machines = this.environmentManager.getMachines(environment).map((machine: IEnvironmentManagerMachine) => {
+        if (machine.name === machineName) {
+          machine.recipe = this.environmentManager.parseRecipe(this.machineRecipeScript);
+          this.machine = machine;
+        }
+        return machine;
+      });
+      this.machineName = newMachineName;
+      this.copyEnvironment = this.environmentManager.getEnvironment(environment, machines);
+
       return {isValid: true, errors: []};
     } catch (error) {
       return {isValid: false, errors: [error.toString()]};

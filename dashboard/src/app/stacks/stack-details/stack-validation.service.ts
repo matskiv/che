@@ -9,13 +9,11 @@
  *   Red Hat, Inc. - initial API and implementation
  */
 'use strict';
-import {ComposeParser} from '../../../components/api/environment/compose-parser';
-import {DockerfileParser} from '../../../components/api/environment/docker-file-parser';
+import {ComposeParser, IComposeRecipe} from '../../../components/api/environment/compose-parser';
+import {DockerfileParser, IRecipeLine} from '../../../components/api/environment/docker-file-parser';
+import {CheRecipeTypes} from '../../../components/api/recipe/che-recipe-types';
+import {OpenshiftParser, IOpenshiftRecipe} from '../../../components/api/environment/openshift-parser';
 
-
-const COMPOSE = 'compose';
-const DOCKERFILE = 'dockerfile';
-const DOCKERIMAGE = 'dockerimage';
 
 /**
  * This class is handling the data for stack validation
@@ -23,25 +21,50 @@ const DOCKERIMAGE = 'dockerimage';
  * @author Oleksii Orel
  */
 export class StackValidationService {
-
-  composeParser: ComposeParser;
-  dockerfileParser: DockerfileParser;
+  private dockerfileParser: DockerfileParser;
+  private composeParser: ComposeParser;
+  private openshiftParser: OpenshiftParser;
 
   constructor() {
-    this.composeParser = new ComposeParser();
-    this.dockerfileParser = new DockerfileParser();
+
   }
 
-  get COMPOSE(): string {
-    return COMPOSE;
-  }
+  /**
+   * Parses recipe.
+   * @param recipe {che.IRecipe}
+   * @returns {IComposeRecipe|IRecipeLine|IOpenshiftRecipe|{}}
+   */
+  parse(recipe: che.IRecipe): IComposeRecipe|IRecipeLine|IOpenshiftRecipe|{} {
+    let parseObj: IComposeRecipe|IRecipeLine|IOpenshiftRecipe|{} = {};
+    if (!recipe || !recipe.type || recipe.content) {
+      return parseObj;
+    }
 
-  get DOCKERFILE(): string {
-    return DOCKERFILE;
-  }
+    switch (recipe.type) {
+      case CheRecipeTypes.DOCKERFILE:
+        if (angular.isUndefined(this.dockerfileParser)) {
+          this.dockerfileParser = new DockerfileParser();
+        }
+        parseObj = this.dockerfileParser.parse(recipe.content);
+        break;
+      case CheRecipeTypes.DOCKERIMAGE:
+        break;
+      case CheRecipeTypes.COMPOSE:
+        if (angular.isUndefined(this.composeParser)) {
+          parseObj = this.composeParser = new ComposeParser();
+        }
+        this.composeParser.parse(recipe.content);
+        break;
+      case CheRecipeTypes.OPENSHIFT:
+        if (angular.isUndefined(this.openshiftParser)) {
+          this.openshiftParser = new OpenshiftParser();
+        }
+        parseObj = this.openshiftParser.parse(recipe.content);
+        break;
+      default:
+    }
 
-  get DOCKERIMAGE(): string {
-    return DOCKERIMAGE;
+    return parseObj;
   }
 
   /**
@@ -261,7 +284,7 @@ export class StackValidationService {
       errors.push('The recipe should have one of \'location\' or \'content\'.');
     }
 
-    if (DOCKERFILE === recipe.type) {
+    if (CheRecipeTypes.DOCKERFILE === recipe.type) {
       if (angular.isDefined(recipe.location) && !recipe.location) {
         isValid = false;
         errors.push('Unknown recipe location.');
@@ -272,7 +295,7 @@ export class StackValidationService {
           errors.push('Unknown recipe content.');
         } else {
           try {
-            this.dockerfileParser.parse(recipe.content);
+            this.parse(recipe);
           } catch (e) {
             isValid = false;
             errors.push(e.message);
@@ -282,7 +305,7 @@ export class StackValidationService {
       if (!recipe.contentType) {
         errors.push('Unknown recipe contentType.');
       }
-    } else if (COMPOSE === recipe.type) {
+    } else if (CheRecipeTypes.COMPOSE === recipe.type) {
       if (angular.isDefined(recipe.location) && !recipe.location) {
         isValid = false;
         errors.push('Unknown recipe location.');
@@ -293,7 +316,7 @@ export class StackValidationService {
           errors.push('Unknown recipe content.');
         } else {
           try {
-            this.composeParser.parse(recipe.content);
+            this.parse(recipe);
           } catch (e) {
             isValid = false;
             errors.push(e.message);
@@ -303,13 +326,35 @@ export class StackValidationService {
       if (!recipe.contentType) {
         errors.push('Unknown recipe contentType.');
       }
-    } else if (DOCKERIMAGE === recipe.type) {
+    } else if (CheRecipeTypes.DOCKERIMAGE === recipe.type) {
       if (!recipe.location) {
         isValid = false;
         errors.push('Unknown recipe location.');
       } else if (recipe.location.length > 256) {
         isValid = false;
         errors.push('Location length is invalid.');
+      }
+    } else if (CheRecipeTypes.OPENSHIFT === recipe.type) {
+      if (angular.isDefined(recipe.location) && !recipe.location) {
+        isValid = false;
+        errors.push('Unknown recipe location.');
+      }
+      if (angular.isDefined(recipe.content)) {
+        if (!recipe.content) {
+          isValid = false;
+          errors.push('Unknown recipe content.');
+        } else {
+          try {
+            this.parse(recipe);
+          } catch (e) {
+            isValid = false;
+            errors.push(e.message);
+          }
+        }
+      }
+
+      if (!recipe.contentType) {
+        errors.push('Unknown recipe contentType.');
       }
     } else {
       isValid = false;

@@ -18,7 +18,7 @@ import {IEnvironmentManagerMachine, IEnvironmentManagerMachineServer} from './en
  * @author Oleksii Kurinnyi
  */
 
-describe('ComposeEnvironmentManager', () => {
+describe('OpenshiftEnvironmentManager', () => {
   let envManager: ComposeEnvironmentManager;
 
   describe('regardless of recipe location or content', () => {
@@ -32,7 +32,7 @@ describe('ComposeEnvironmentManager', () => {
           'another-machine': {
             'attributes': {'memoryLimitBytes': '2147483648'},
             'servers': {},
-            'agents': []
+            'installers': []
           },
           'db': {'attributes': {}, 'servers': {}, 'installers': []},
           'dev-machine': {
@@ -90,16 +90,16 @@ describe('ComposeEnvironmentManager', () => {
           'another-machine': {
             'attributes': {'memoryLimitBytes': '2147483648'},
             'servers': {},
-            'agents': []
+            'installers': []
           },
-          'db': {'attributes': {}, 'servers': {}, 'agents': []},
+          'db': {'attributes': {}, 'servers': {}, 'installers': []},
           'dev-machine': {
             'attributes': {'memoryLimitBytes': '5368709120'},
             'servers': {
               '1024/tcp': {'port': '1024', 'properties': {}, 'protocol': 'http'},
               '1025/tcp': {'port': '1025', 'properties': {}, 'protocol': 'http'}
             },
-            'agents': ['org.eclipse.che.ws-agent', 'org.eclipse.che.terminal', 'org.eclipse.che.ssh']
+            'installers': ['org.eclipse.che.ws-agent', 'org.eclipse.che.terminal', 'org.eclipse.che.ssh']
           }
         },
         'recipe': {
@@ -181,7 +181,7 @@ describe('ComposeEnvironmentManager', () => {
         'machines': {
           'dev-machine': {
             'servers': {},
-            'agents': ['org.eclipse.che.ws-agent', 'org.eclipse.che.terminal', 'org.eclipse.che.ssh'],
+            'installers': ['org.eclipse.che.ws-agent', 'org.eclipse.che.terminal', 'org.eclipse.che.ssh'],
             'attributes': {'memoryLimitBytes': '2147483648'}
           }
         },

@@ -86,7 +86,7 @@ export class DockerFileEnvironmentManager extends EnvironmentManager {
    * @returns {Array} a list of instructions and arguments
    * @private
    */
-  _parseRecipe(content: string): any[] {
+  parseRecipe(content: string): any[] {
     let recipe: any[] = null;
     try {
       recipe = this.parser.parse(content);
@@ -103,7 +103,7 @@ export class DockerFileEnvironmentManager extends EnvironmentManager {
    * @returns {string} dockerfile
    * @private
    */
-  _stringifyRecipe(instructions: any[]): string {
+  stringifyRecipe(instructions: any[]): string {
     let content = '';
 
     try {
@@ -128,7 +128,7 @@ export class DockerFileEnvironmentManager extends EnvironmentManager {
     // machines should contain one machine only
     if (machines && machines[0] && machines[0].recipe) {
       try {
-        newEnvironment.recipe.content = this._stringifyRecipe(machines[0].recipe);
+        newEnvironment.recipe.content = this.stringifyRecipe(machines[0].recipe);
       } catch (e) {
         this.$log.error('Cannot retrieve environment\'s recipe, error: ', e);
       }
@@ -149,7 +149,7 @@ export class DockerFileEnvironmentManager extends EnvironmentManager {
         machines: IEnvironmentManagerMachine[] = super.getMachines(environment, runtime);
 
     if (environment.recipe.content) {
-      recipe = this._parseRecipe(environment.recipe.content);
+      recipe = this.parseRecipe(environment.recipe.content);
     }
 
     Object.keys(environment.machines).forEach((machineName: string) => {

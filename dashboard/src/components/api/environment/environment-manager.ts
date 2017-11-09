@@ -10,6 +10,7 @@
  */
 'use strict';
 import {IEnvironmentManagerMachine, IEnvironmentManagerMachineServer} from './environment-manager-machine';
+import {CheRecipeTypes} from '../recipe/che-recipe-types';
 
 /**
  * This is base class, which describes the environment manager.
@@ -43,6 +44,10 @@ export abstract class EnvironmentManager {
     return '';
   }
 
+  abstract parseRecipe(content: string): any;
+
+  abstract stringifyRecipe(recipe: any): string;
+
   abstract getSource(machine: IEnvironmentManagerMachine): {[sourceType: string]: string};
 
   abstract setEnvVariables(machine: IEnvironmentManagerMachine, envVariables: any): void;
@@ -73,16 +78,20 @@ export abstract class EnvironmentManager {
 
     Object.keys(runtime.machines).forEach((machineName: string) => {
       let runtimeMachine = runtime.machines[machineName];
-      let machine: any = {name: machineName};
-      if (runtimeMachine.runtime && runtimeMachine.runtime.servers) {
+      let machine: any = {name: machineName, servers: {}};
+      if (runtimeMachine && runtimeMachine.servers) {
         machine.runtime = {
-          servers: runtimeMachine.runtime.servers
+          servers: runtimeMachine.servers
         };
       }
       machines.push(machine);
     });
 
     return machines;
+  }
+
+  getMachineName(machine: IEnvironmentManagerMachine): string {
+    return machine && machine.name ? angular.copy(machine.name) : '';
   }
 
   /**
@@ -94,6 +103,7 @@ export abstract class EnvironmentManager {
    * @returns {che.IWorkspaceEnvironment} new environment
    */
   renameMachine(environment: che.IWorkspaceEnvironment, oldName: string, newName: string): che.IWorkspaceEnvironment {
+    environment = angular.copy(environment);
 
     // update environment config
     environment.machines[newName] = environment.machines[oldName];
@@ -194,23 +204,19 @@ export abstract class EnvironmentManager {
       return servers;
     }
     Object.keys(machine.runtime.servers).forEach((runtimeServerName: string) => {
-      let runtimeServer: che.IWorkspaceRuntimeMachineServer = machine.runtime.servers[runtimeServerName],
-          runtimeServerReference = runtimeServer.ref;
+      const runtimeServer: che.IWorkspaceRuntimeMachineServer = machine.runtime.servers[runtimeServerName],
+        [protocol] = runtimeServer.url ? runtimeServer.url.split('://') : '-',
+        port = runtimeServer.port ? runtimeServer.port : protocol.includes('http') ? '80' : '-';
 
-      if (servers[runtimeServerReference]) {
-        servers[runtimeServerReference].runtime = runtimeServer;
+      if (servers[runtimeServerName]) {
+        servers[runtimeServerName].runtime = runtimeServer;
       } else {
-        let port;
-        if (runtimeServer.port) {
-          port = runtimeServer.port;
-        } else {
-          [port, ] = runtimeServerName.split('/');
-        }
-        servers[runtimeServerReference] = {
+        servers[runtimeServerName] = {
           userScope: false,
-          port: port,
-          protocol: runtimeServer.protocol,
-          runtime: runtimeServer
+          path: runtimeServer.url,
+          runtime: runtimeServer,
+          protocol: protocol,
+          port: port
         };
       }
     });

@@ -13,6 +13,7 @@
 import {EnvironmentManager} from './environment-manager';
 import {IEnvironmentManagerMachine} from './environment-manager-machine';
 import {ComposeParser, IComposeRecipe} from './compose-parser';
+import {CheRecipeTypes} from '../recipe/che-recipe-types';
 
 /**
  * This is the implementation of environment manager that handles the docker compose format.
@@ -52,8 +53,6 @@ import {ComposeParser, IComposeRecipe} from './compose-parser';
  *  @author Ann Shumilova
  */
 
-const COMPOSE = 'compose';
-
 export class ComposeEnvironmentManager extends EnvironmentManager {
   parser: ComposeParser;
 
@@ -64,7 +63,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
   }
 
   get type(): string {
-    return COMPOSE;
+    return CheRecipeTypes.COMPOSE;
   }
 
   get editorMode(): string {
@@ -77,7 +76,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
    * @param content {string} recipe content
    * @returns {IComposeRecipe} recipe object
    */
-  _parseRecipe(content: string): IComposeRecipe {
+  parseRecipe(content: string): IComposeRecipe {
     let recipe = null;
     try {
       recipe = this.parser.parse(content);
@@ -94,7 +93,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
    * @returns {string} recipe content
    */
 
-  _stringifyRecipe(recipe: IComposeRecipe): string {
+  stringifyRecipe(recipe: IComposeRecipe): string {
     let content = '';
     try {
       content = this.parser.dump(recipe);
@@ -118,7 +117,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
       machineNames: string[] = [];
 
     if (environment.recipe.content) {
-      recipe = this._parseRecipe(environment.recipe.content);
+      recipe = this.parseRecipe(environment.recipe.content);
       if (recipe) {
         machineNames = Object.keys(recipe.services);
       } else if (environment.machines) {
@@ -165,7 +164,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
     let newEnvironment = super.getEnvironment(environment, machines);
 
     if (newEnvironment.recipe.content) {
-      let recipe: IComposeRecipe = this._parseRecipe(newEnvironment.recipe.content);
+      let recipe: IComposeRecipe = this.parseRecipe(newEnvironment.recipe.content);
 
       if (recipe) {
         machines.forEach((machine: IEnvironmentManagerMachine) => {
@@ -184,7 +183,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
         });
 
         try {
-          newEnvironment.recipe.content = this._stringifyRecipe(recipe);
+          newEnvironment.recipe.content = this.stringifyRecipe(recipe);
         } catch (e) {
           this.$log.error('Cannot retrieve environment\'s recipe, error: ', e);
         }
@@ -276,8 +275,9 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
    * @returns {che.IWorkspaceEnvironment} new environment
    */
   renameMachine(environment: che.IWorkspaceEnvironment, oldName: string, newName: string): che.IWorkspaceEnvironment {
+    environment = angular.copy(environment);
     try {
-      const recipe: IComposeRecipe = this._parseRecipe(environment.recipe.content);
+      const recipe: IComposeRecipe = this.parseRecipe(environment.recipe.content);
 
       // fix relations to other machines in recipe
       Object.keys(recipe.services).forEach((serviceName: string) => {
@@ -314,7 +314,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
       delete recipe.services[oldName];
 
       // try to update recipe
-      environment.recipe.content = this._stringifyRecipe(recipe);
+      environment.recipe.content = this.stringifyRecipe(recipe);
 
       // and then update config
       environment.machines[newName] = environment.machines[oldName];
@@ -386,9 +386,9 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
 
     environment.machines[machineName] = machine;
 
-    const recipe: IComposeRecipe = this._parseRecipe(environment.recipe.content);
+    const recipe: IComposeRecipe = this.parseRecipe(environment.recipe.content);
     angular.extend(recipe.services, {[machineName]: machineRecipe});
-    environment.recipe.content = this._stringifyRecipe(recipe);
+    environment.recipe.content = this.stringifyRecipe(recipe);
 
     return environment;
   }
@@ -402,7 +402,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
    */
   deleteMachine(environment: che.IWorkspaceEnvironment, name: string): che.IWorkspaceEnvironment {
     try {
-      let recipe: IComposeRecipe = this._parseRecipe(environment.recipe.content);
+      let recipe: IComposeRecipe = this.parseRecipe(environment.recipe.content);
 
       // fix relations to other machines in recipe
       Object.keys(recipe.services).forEach((serviceName: string) => {
@@ -438,7 +438,7 @@ export class ComposeEnvironmentManager extends EnvironmentManager {
       delete recipe.services[name];
 
       // try to update recipe
-      environment.recipe.content = this._stringifyRecipe(recipe);
+      environment.recipe.content = this.stringifyRecipe(recipe);
 
       // and then update config
       delete environment.machines[name];
