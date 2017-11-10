@@ -10,8 +10,13 @@
  */
 package org.eclipse.che.workspace.infrastructure.openshift;
 
+import static java.lang.String.format;
+import static org.eclipse.che.workspace.infrastructure.openshift.Constants.CHE_ORIGINAL_NAME_LABEL;
+import static org.eclipse.che.workspace.infrastructure.openshift.Constants.MACHINE_NAME_ANNOTATION_FMT;
+
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.Pod;
+import java.util.Map;
 import org.eclipse.che.commons.lang.NameGenerator;
 
 /**
@@ -20,38 +25,35 @@ import org.eclipse.che.commons.lang.NameGenerator;
  * @author Sergii Leshchenko
  */
 public class Names {
+
   static final char WORKSPACE_ID_PREFIX_SEPARATOR = '.';
 
   static final String ROUTE_PREFIX = "route";
   static final int ROUTE_PREFIX_SIZE = 8;
 
-  /** Returns machine name that has the following format `{POD_NAME}/{CONTAINER_NAME}`. */
-  public static String machineName(String podName, String containerName) {
-    return podName + '/' + containerName;
-  }
-
-  /** Returns machine name that has the following format `{POD_NAME}/{CONTAINER_NAME}`. */
-  public static String machineName(Pod pod, Container container) {
-    return machineName(pod.getMetadata().getName(), container.getName());
-  }
-
   /**
-   * Returns pod name that is extracted from machine name.
-   *
-   * @see #machineName(String, String)
+   * Returns machine name that has the following format `{POD_NAME}/{CONTAINER_NAME}` or machine
+   * name from configuration when it's not composite.
    */
-  public static String podName(String machineName) {
-    return machineName.split("/")[0];
+  public static String machineName(Pod pod, Container container) {
+    final Map<String, String> annotations = pod.getMetadata().getAnnotations();
+    String machineName;
+    final String containerName = container.getName();
+    if (annotations != null
+        && (machineName = annotations.get(format(MACHINE_NAME_ANNOTATION_FMT, containerName)))
+            != null) {
+      return machineName;
+    }
+    final Map<String, String> labels = pod.getMetadata().getLabels();
+    if (labels != null && (machineName = labels.get(CHE_ORIGINAL_NAME_LABEL)) != null) {
+      return machineName + '/' + containerName;
+    }
+    return pod.getMetadata().getName() + '/' + containerName;
   }
 
   /** Return pod name that will be unique for a whole namespace. */
   public static String uniquePodName(String originalPodName, String workspaceId) {
     return workspaceId + WORKSPACE_ID_PREFIX_SEPARATOR + originalPodName;
-  }
-
-  /** Return original pod name that is extracted from unique value. */
-  public static String originalPodName(String podName, String workspaceId) {
-    return podName.replace(workspaceId + WORKSPACE_ID_PREFIX_SEPARATOR, "");
   }
 
   /** Returns route name that will be unique whole a namespace. */
