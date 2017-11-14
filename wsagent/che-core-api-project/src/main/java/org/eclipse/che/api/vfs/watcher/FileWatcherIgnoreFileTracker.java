@@ -29,7 +29,12 @@ import static org.eclipse.che.api.vfs.watcher.FileWatcherUtils.toNormalPath;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import javax.annotation.PostConstruct;
@@ -151,7 +156,7 @@ public class FileWatcherIgnoreFileTracker {
 
   private void addFileWatcherExcludesMatcher() {
     fileWatcherManager.addExcludeMatcher(
-            path -> excludes.values().stream().flatMap(Collection::stream).anyMatch(path::startsWith));
+        path -> excludes.values().stream().flatMap(Collection::stream).anyMatch(path::startsWith));
   }
 
   private void fillUpExcludesFromIgnoreFile(String ignoreFileLocation) {
