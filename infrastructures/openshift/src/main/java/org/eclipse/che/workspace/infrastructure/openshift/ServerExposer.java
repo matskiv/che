@@ -33,9 +33,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.eclipse.che.api.core.model.workspace.config.ServerConfig;
 import org.eclipse.che.api.core.model.workspace.runtime.RuntimeIdentity;
-import org.eclipse.che.api.workspace.server.spi.InternalEnvironment;
 import org.eclipse.che.workspace.infrastructure.openshift.environment.OpenShiftEnvironment;
-import org.eclipse.che.workspace.infrastructure.openshift.environment.OpenShiftInternalEnvironment;
 import org.eclipse.che.workspace.infrastructure.openshift.provision.UniqueNamesProvisioner;
 
 /**
@@ -102,10 +100,10 @@ public class ServerExposer {
 
   private final String machineName;
   private final Container container;
-  private final OpenShiftInternalEnvironment openShiftEnvironment;
+  private final OpenShiftEnvironment openShiftEnvironment;
 
   public ServerExposer(
-      String machineName, Container container, OpenShiftInternalEnvironment openShiftEnvironment) {
+      String machineName, Container container, OpenShiftEnvironment openShiftEnvironment) {
     this.machineName = machineName;
     this.container = container;
     this.openShiftEnvironment = openShiftEnvironment;
@@ -119,8 +117,7 @@ public class ServerExposer {
    * UniqueNamesProvisioner}.
    *
    * @param servers servers to expose
-   * @see UniqueNamesProvisioner#provision(InternalEnvironment, OpenShiftEnvironment,
-   *     RuntimeIdentity)
+   * @see UniqueNamesProvisioner#provision(OpenShiftEnvironment, RuntimeIdentity)
    */
   public void expose(Map<String, ? extends ServerConfig> servers) {
     Map<String, ServicePort> portToServicePort = exposePort(servers.values());

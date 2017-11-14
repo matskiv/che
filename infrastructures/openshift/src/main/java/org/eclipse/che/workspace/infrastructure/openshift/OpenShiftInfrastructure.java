@@ -11,46 +11,46 @@
 package org.eclipse.che.workspace.infrastructure.openshift;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.eclipse.che.api.core.ValidationException;
 import org.eclipse.che.api.core.model.workspace.runtime.RuntimeIdentity;
 import org.eclipse.che.api.core.notification.EventService;
 import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
-import org.eclipse.che.api.workspace.server.spi.InternalEnvironment;
 import org.eclipse.che.api.workspace.server.spi.RuntimeInfrastructure;
-import org.eclipse.che.workspace.infrastructure.openshift.environment.OpenShiftInternalEnvironment;
+import org.eclipse.che.api.workspace.server.spi.environment.InternalEnvironment;
+import org.eclipse.che.api.workspace.server.spi.provision.InternalEnvironmentProvisioner;
+import org.eclipse.che.workspace.infrastructure.openshift.environment.OpenShiftEnvironment;
 
 /** @author Sergii Leshchenko */
 @Singleton
 public class OpenShiftInfrastructure extends RuntimeInfrastructure {
+
+  public static final String NAME = "openshift";
+
   private final OpenShiftRuntimeContextFactory runtimeContextFactory;
-  private final OpenShiftInfrastructureProvisioner infrastructureProvisioner;
+  private final OpenShiftEnvironmentProvisioner osEnvProvisioner;
 
   @Inject
   public OpenShiftInfrastructure(
+      EventService eventService,
       OpenShiftRuntimeContextFactory runtimeContextFactory,
-      OpenShiftInfrastructureProvisioner infrastructureProvisioner,
-      EventService eventService) {
-    super("openshift", ImmutableSet.of("openshift"), eventService);
+      OpenShiftEnvironmentProvisioner osEnvProvisioner,
+      Set<InternalEnvironmentProvisioner> internalEnvProvisioners) {
+    super(NAME, ImmutableSet.of(OpenShiftEnvironment.TYPE), eventService, internalEnvProvisioners);
     this.runtimeContextFactory = runtimeContextFactory;
-    this.infrastructureProvisioner = infrastructureProvisioner;
+    this.osEnvProvisioner = osEnvProvisioner;
   }
 
   @Override
-  public OpenShiftRuntimeContext prepare(RuntimeIdentity id, InternalEnvironment environment)
+  protected OpenShiftRuntimeContext internalPrepare(
+      RuntimeIdentity id, InternalEnvironment environment)
       throws ValidationException, InfrastructureException {
+    OpenShiftEnvironment openShiftEnvironment = (OpenShiftEnvironment) environment;
 
-    String recipeType = environment.getRecipe().getType();
-    if (recipeType.equals("openshift")) {
+    osEnvProvisioner.provision(openShiftEnvironment, id);
 
-      OpenShiftInternalEnvironment openShiftEnvironment =
-          (OpenShiftInternalEnvironment) environment;
-      infrastructureProvisioner.provision(openShiftEnvironment, id);
-
-      return runtimeContextFactory.create(openShiftEnvironment, id, this);
-    } else {
-      throw new InfrastructureException("Unknown recipe type " + recipeType);
-    }
+    return runtimeContextFactory.create(openShiftEnvironment, id, this);
   }
 }

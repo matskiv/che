@@ -64,9 +64,8 @@ import org.eclipse.che.api.workspace.server.hc.ServersChecker;
 import org.eclipse.che.api.workspace.server.hc.ServersCheckerFactory;
 import org.eclipse.che.api.workspace.server.model.impl.RuntimeIdentityImpl;
 import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
-import org.eclipse.che.api.workspace.server.spi.InternalEnvironment;
 import org.eclipse.che.api.workspace.server.spi.InternalInfrastructureException;
-import org.eclipse.che.api.workspace.server.spi.InternalMachineConfig;
+import org.eclipse.che.api.workspace.server.spi.environment.InternalMachineConfig;
 import org.eclipse.che.api.workspace.shared.dto.event.MachineStatusEvent;
 import org.eclipse.che.dto.server.DtoFactory;
 import org.eclipse.che.workspace.infrastructure.openshift.bootstrapper.OpenShiftBootstrapper;
@@ -119,7 +118,6 @@ public class OpenShiftInternalRuntimeTest {
   @Mock private OpenShiftRoutes routes;
   @Mock private OpenShiftPods pods;
   @Mock private OpenShiftBootstrapper bootstrapper;
-  @Mock private InternalEnvironment environment;
 
   @Captor private ArgumentCaptor<MachineStatusEvent> eventCaptor;
 
@@ -137,7 +135,7 @@ public class OpenShiftInternalRuntimeTest {
             serverCheckerFactory,
             context,
             project);
-    when(context.getOpenShiftEnvironment()).thenReturn(osEnv);
+    when(context.getEnvironment()).thenReturn(osEnv);
     when(serverCheckerFactory.create(any(), anyString(), any())).thenReturn(serversChecker);
     when(context.getIdentity()).thenReturn(IDENTITY);
     doNothing().when(project).cleanUp();
@@ -146,9 +144,14 @@ public class OpenShiftInternalRuntimeTest {
     when(project.pods()).thenReturn(pods);
     when(bootstrapperFactory.create(any(), anyListOf(Installer.class), any()))
         .thenReturn(bootstrapper);
-    when(context.getEnvironment()).thenReturn(environment);
-    doReturn(ImmutableMap.of(M1_NAME, mockMachine(), M2_NAME, mockMachine()))
-        .when(environment)
+    when(context.getEnvironment()).thenReturn(osEnv);
+    doReturn(
+            ImmutableMap.of(
+                M1_NAME,
+                mockMachine(mockInstaller("ws-agent")),
+                M2_NAME,
+                mockMachine(mockInstaller("terminal"))))
+        .when(osEnv)
         .getMachines();
   }
 
@@ -365,6 +368,12 @@ public class OpenShiftInternalRuntimeTest {
     when(route.getMetadata().getLabels())
         .thenReturn(ImmutableMap.of(CHE_ORIGINAL_NAME_LABEL, ROUTE_NAME));
     return route;
+  }
+
+  private static InstallerImpl mockInstaller(String name) {
+    InstallerImpl installer = mock(InstallerImpl.class);
+    when(installer.getName()).thenReturn(name);
+    return installer;
   }
 
   private static InternalMachineConfig mockMachine(InstallerImpl... installers) {
