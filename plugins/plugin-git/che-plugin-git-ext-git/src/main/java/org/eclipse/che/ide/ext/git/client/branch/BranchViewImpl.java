@@ -18,23 +18,24 @@ import com.google.gwt.safehtml.shared.SafeHtmlBuilder;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
-import com.google.gwt.user.client.ui.Button;
-import com.google.gwt.user.client.ui.ListBox;
-import com.google.gwt.user.client.ui.ScrollPanel;
-import com.google.gwt.user.client.ui.UIObject;
-import com.google.gwt.user.client.ui.Widget;
+import com.google.gwt.user.client.ui.*;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import elemental.dom.Element;
 import elemental.html.TableCellElement;
 import elemental.html.TableElement;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.validation.constraints.NotNull;
 import org.eclipse.che.api.git.shared.Branch;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.GitResources;
 import org.eclipse.che.ide.ui.dialogs.DialogFactory;
 import org.eclipse.che.ide.ui.dialogs.confirm.ConfirmCallback;
+import org.eclipse.che.ide.ui.list.FilterableSimpleList;
 import org.eclipse.che.ide.ui.list.SimpleList;
 import org.eclipse.che.ide.ui.window.Window;
 import org.eclipse.che.ide.util.dom.Elements;
@@ -58,6 +59,7 @@ public class BranchViewImpl extends Window implements BranchView {
   Button btnCheckout;
   @UiField ScrollPanel branchesPanel;
   @UiField ListBox filter;
+  @UiField Label label;
 
   @UiField(provided = true)
   final GitResources res;
@@ -66,7 +68,7 @@ public class BranchViewImpl extends Window implements BranchView {
   final GitLocalizationConstant locale;
 
   private final DialogFactory dialogFactory;
-  private SimpleList<Branch> branches;
+  private FilterableSimpleList branches;
   private ActionDelegate delegate;
 
   /** Create presenter. */
@@ -133,11 +135,19 @@ public class BranchViewImpl extends Window implements BranchView {
           }
         };
     branches =
-        SimpleList.create(
+        new FilterableSimpleList<>(
             (SimpleList.View) breakPointsElement,
             coreRes.defaultSimpleListCss(),
+            coreRes.defaultFilterableListCss(),
             listBranchesRenderer,
-            listBranchesDelegate);
+            listBranchesDelegate,
+            new FilterableSimpleList.Delegate() {
+              @Override
+              public void onFilterChanged(String filter) {
+                delegate.onFilterChanged(filter);
+              }
+            });
+
     this.branchesPanel.add(branches);
 
     this.filter.addItem("All", "all");
@@ -223,7 +233,7 @@ public class BranchViewImpl extends Window implements BranchView {
     dialogFactory
         .createConfirmDialog(
             locale.branchDelete(),
-            locale.branchDeleteAsk(branches.getSelectionModel().getSelectedItem().getName()),
+            "", // locale.branchDeleteAsk(branches.getSelectionModel().getSelectedItem().getName()),
             new ConfirmCallback() {
               @Override
               public void accepted() {
@@ -270,7 +280,8 @@ public class BranchViewImpl extends Window implements BranchView {
   /** {@inheritDoc} */
   @Override
   public void setBranches(@NotNull List<Branch> branches) {
-    this.branches.render(branches);
+      Map<String, Branch> collect = branches.stream().collect(Collectors.toMap(Branch::getDisplayName, branch -> branch));
+      this.branches.render(collect);
     if (this.branches.getSelectionModel().getSelectedItem() == null) {
       delegate.onBranchUnselected();
     }
@@ -311,5 +322,10 @@ public class BranchViewImpl extends Window implements BranchView {
     if (!super.isShowing()) {
       this.show(btnCreate);
     }
+  }
+
+  @Override
+  public void setFilterContent(String content) {
+    label.setText(content);
   }
 }

@@ -29,6 +29,7 @@ public class StyleInjector {
     resources.windowCss().ensureInjected();
     resources.treeCss().ensureInjected();
     resources.defaultSimpleListCss().ensureInjected();
+    resources.defaultFilterableListCss().ensureInjected();
     resources.partStackCss().ensureInjected();
     resources.dialogBox().ensureInjected();
     resources.clipboardCss().ensureInjected();

@@ -25,6 +25,7 @@ import org.eclipse.che.ide.ui.cellview.CellTableResources;
 import org.eclipse.che.ide.ui.cellview.CellTreeResources;
 import org.eclipse.che.ide.ui.cellview.DataGridResources;
 import org.eclipse.che.ide.ui.list.CategoriesList;
+import org.eclipse.che.ide.ui.list.FilterableSimpleList;
 import org.eclipse.che.ide.ui.list.SimpleList;
 import org.eclipse.che.ide.ui.tree.Tree;
 import org.eclipse.che.ide.ui.window.Window;
@@ -41,6 +42,7 @@ public interface Resources
         Tree.Resources,
         PartStackUIResources,
         SimpleList.Resources,
+        FilterableSimpleList.Resources,
         MenuResources,
         DialogBoxResources,
         ZeroClipboardResources,

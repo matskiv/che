@@ -334,7 +334,7 @@ public class SimpleList<M> extends UiComponent<SimpleList.View> implements IsWid
 
   private HTML widget;
 
-  private SimpleList(
+  SimpleList(
       View view,
       Element container,
       Element itemHolder,
@@ -462,6 +462,12 @@ public class SimpleList<M> extends UiComponent<SimpleList.View> implements IsWid
               }
             },
             false);
+    //    getView().addEventListener(Event.KEYDOWN, new EventListener() {
+    //      @Override
+    //      public void handleEvent(Event evt) {
+    //        com.google.gwt.user.client.Window.alert("keydown");
+    //      }
+    //    });
   }
 
   public M get(int i) {

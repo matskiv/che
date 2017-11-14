@@ -29,6 +29,7 @@
             <g:FlowPanel >
                 <g:Label text="{locale.branchFilterLabel}" width="85px" addStyleNames="{style.alignLeft}"/>
                 <g:ListBox ui:field="filter" width="80px" addStyleNames="{style.alignLeft}"/>
+                <g:Label ui:field="label" addStyleNames="{style.alignLeft}"/>
             </g:FlowPanel>
         </g:north>
         <g:center>

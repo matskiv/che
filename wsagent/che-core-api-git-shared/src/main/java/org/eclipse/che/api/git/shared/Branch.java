@@ -11,6 +11,7 @@
 package org.eclipse.che.api.git.shared;
 
 import org.eclipse.che.dto.shared.DTO;
+import org.eclipse.che.ide.ui.list.FilterableSimpleList;
 
 /**
  * Git branch description.
@@ -18,9 +19,9 @@ import org.eclipse.che.dto.shared.DTO;
  * @author andrew00x
  */
 @DTO
-public interface Branch {
+public interface Branch extends FilterableItem{
   /** @return full name of branch, e.g. 'refs/heads/master' */
-  String getName();
+//  String getName();
 
   /** @return <code>true</code> if branch is checked out and false otherwise */
   boolean isActive();

@@ -58,6 +58,8 @@ public interface BranchView extends View<BranchView.ActionDelegate> {
 
     /** Performs any action in response to the user having selected branch filter. */
     void onFilterValueChanged();
+
+    void onFilterChanged(String filter);
   }
 
   /**
@@ -96,4 +98,6 @@ public interface BranchView extends View<BranchView.ActionDelegate> {
 
   /** Show dialog. */
   void showDialogIfClosed();
+
+  void setFilterContent(String content);
 }

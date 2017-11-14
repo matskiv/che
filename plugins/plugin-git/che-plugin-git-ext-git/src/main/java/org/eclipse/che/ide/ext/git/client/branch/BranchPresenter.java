@@ -245,6 +245,11 @@ public class BranchPresenter implements BranchView.ActionDelegate {
   }
 
   @Override
+  public void onFilterChanged(String filter) {
+    view.setFilterContent(filter);
+  }
+
+  @Override
   public void onBranchSelected(@NotNull Branch branch) {
     selectedBranch = branch;
     boolean isActive = selectedBranch.isActive();
