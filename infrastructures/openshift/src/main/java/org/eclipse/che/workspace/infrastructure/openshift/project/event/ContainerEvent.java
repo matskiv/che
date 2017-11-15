@@ -36,7 +36,7 @@ public class ContainerEvent {
     return podName;
   }
 
-  /** Returns container name which is produces events. */
+  /** Returns container name which produced event. */
   public String getContainerName() {
     return containerName;
   }

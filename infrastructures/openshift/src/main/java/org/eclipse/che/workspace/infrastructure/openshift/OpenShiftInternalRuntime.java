@@ -13,6 +13,7 @@ package org.eclipse.che.workspace.infrastructure.openshift;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.assistedinject.Assisted;
 import io.fabric8.kubernetes.api.model.Container;
@@ -197,8 +198,8 @@ public class OpenShiftInternalRuntime extends InternalRuntime<OpenShiftRuntimeCo
    * @param routes created OpenShift routes
    * @throws InfrastructureException when any error occurs while creating OpenShift pods
    */
-  private void createPods(List<Service> services, List<Route> routes)
-      throws InfrastructureException {
+  @VisibleForTesting
+  void createPods(List<Service> services, List<Route> routes) throws InfrastructureException {
     final ServerResolver serverResolver = ServerResolver.of(services, routes);
     for (Pod toCreate : getContext().getOpenShiftEnvironment().getPods().values()) {
       final Pod createdPod = project.pods().create(toCreate);
