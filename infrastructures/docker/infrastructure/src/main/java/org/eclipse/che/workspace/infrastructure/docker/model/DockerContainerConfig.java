@@ -281,7 +281,7 @@ public class DockerContainerConfig {
   }
 
   public DockerContainerConfig setExpose(Set<String> expose) {
-    for(String exp : expose) {
+    for (String exp : expose) {
       addExpose(exp);
     }
     return this;

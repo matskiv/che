@@ -25,15 +25,15 @@ import org.eclipse.che.api.workspace.server.WsAgentMachineFinderUtil;
 /**
  * Validates {@link InternalEnvironment}.
  *
+ * @author Alexander Garagatyi
  * @author Sergii Leshchenko
  */
 public abstract class InternalEnvironmentValidator<T extends InternalEnvironment> {
 
-  /* machine name must contain only {a-zA-Z0-9_-} characters and it's needed for validation machine names */
-  // TODO Add test for this
-  protected static final String MACHINE_NAME_REGEXP = "[a-zA-Z0-9]+[a-zA-Z0-9_/-]*";
+  protected static final String MACHINE_NAME_REGEXP = "[a-zA-Z0-9]+([a-zA-Z0-9_/-]*[a-zA-Z0-9])?";
   protected static final Pattern MACHINE_NAME_PATTERN =
       Pattern.compile("^" + MACHINE_NAME_REGEXP + "$");
+
   protected static final Pattern SERVER_PORT_PATTERN =
       Pattern.compile("^[1-9]+[0-9]*(/(tcp|udp))?$");
   protected static final Pattern SERVER_PROTOCOL_PATTERN = Pattern.compile("^[a-z][a-z0-9-+.]*$");

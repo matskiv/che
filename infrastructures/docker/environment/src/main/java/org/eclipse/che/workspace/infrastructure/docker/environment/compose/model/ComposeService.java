@@ -268,20 +268,20 @@ public class ComposeService {
    * </ul>
    */
   public Set<String> getExpose() {
-//    if (expose == null) {
-//      expose = new ArrayList<>();
-//    }
+    //    if (expose == null) {
+    //      expose = new ArrayList<>();
+    //    }
     return expose;
   }
 
   public void setExpose(Set<String> expose) {
-    for(String exp : expose) {
+    for (String exp : expose) {
       addExpose(exp);
     }
   }
 
   public ComposeService withExpose(Set<String> expose) {
-    for(String exp : expose) {
+    for (String exp : expose) {
       addExpose(exp);
     }
     return this;

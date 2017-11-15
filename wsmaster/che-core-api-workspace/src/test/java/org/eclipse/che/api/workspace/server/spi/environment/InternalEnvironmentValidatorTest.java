@@ -12,14 +12,15 @@ package org.eclipse.che.api.workspace.server.spi.environment;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.eclipse.che.api.core.ValidationException;
@@ -30,12 +31,14 @@ import org.eclipse.che.api.workspace.shared.Constants;
 import org.mockito.Mock;
 import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
 /**
  * Tests {@link InternalEnvironmentValidator}.
  *
+ * @author Alexander Garagatyi
  * @author Sergii Leshchenko
  */
 @Listeners(MockitoTestNGListener.class)
@@ -44,29 +47,32 @@ public class InternalEnvironmentValidatorTest {
   private static final String MACHINE_NAME = "machine1";
 
   @Mock private InternalEnvironment environment;
-  @Mock private InternalMachineConfig machineConfig;
-  @Mock private InstallerImpl installer;
-  @Mock private ServerConfigImpl server;
+  private InternalMachineConfig machineConfig;
 
   private InternalEnvironmentValidator<InternalEnvironment> environmentValidator;
 
   @BeforeMethod
   public void setUp() throws Exception {
-    environmentValidator = new TestEnvironmentValidator();
+    environmentValidator = spy(new TestEnvironmentValidator());
 
+    machineConfig = machineMockWithServers(Constants.SERVER_WS_AGENT_HTTP_REFERENCE);
     when(environment.getMachines()).thenReturn(singletonMap(MACHINE_NAME, machineConfig));
-    when(machineConfig.getInstallers()).thenReturn(singletonList(installer));
-    when(installer.getId()).thenReturn(WsAgentMachineFinderUtil.WS_AGENT_INSTALLER);
-    when(server.getPort()).thenReturn("8080/tcp");
-    when(server.getPath()).thenReturn("/some/path");
-    when(server.getProtocol()).thenReturn("https");
+  }
+
+  @Test
+  public void shouldInvokeDoValidateIsEnvironmentIsValid() throws Exception {
+    // when
+    environmentValidator.validate(environment);
+
+    // then
+    verify(environmentValidator).doValidate(environment);
   }
 
   @Test(
     expectedExceptions = ValidationException.class,
     expectedExceptionsMessageRegExp = "Environment should contain at least 1 machine"
   )
-  public void shouldFailIfMachinesListIsNull() throws Exception {
+  public void shouldFailIfMachinesIsNull() throws Exception {
     // given
     when(environment.getMachines()).thenReturn(null);
 
@@ -76,12 +82,61 @@ public class InternalEnvironmentValidatorTest {
 
   @Test(
     expectedExceptions = ValidationException.class,
-    expectedExceptionsMessageRegExp =
-        "Machine '.*' in environment contains server conf '.*' with invalid port '.*'"
+    expectedExceptionsMessageRegExp = "Environment should contain at least 1 machine"
   )
-  public void shouldFailIfServerPortInMachineIsInvalid() throws Exception {
+  public void shouldFailIfMachinesIsEmpty() throws Exception {
     // given
-    when(server.getPort()).thenReturn("aaaaa");
+    when(environment.getMachines()).thenReturn(emptyMap());
+
+    // when
+    environmentValidator.validate(environment);
+  }
+
+  @Test(
+    expectedExceptions = ValidationException.class,
+    expectedExceptionsMessageRegExp = "Name of machine '.*' in environment is invalid",
+    dataProvider = "invalidMachineNames"
+  )
+  public void shouldFailIfMachinesNameAreInvalid(String machineName) throws Exception {
+    // given
+    when(environment.getMachines()).thenReturn(singletonMap(machineName, machineConfig));
+
+    // when
+    environmentValidator.validate(environment);
+  }
+
+  @DataProvider(name = "invalidMachineNames")
+  public Object[][] invalidMachineNames() {
+    return new Object[][] {
+      {""}, {"-123"}, {"123-"}, {"-123-"}, {"/123-"}, {"/123"}, {"123/"}, {"123_"}, {"!asdd/"},
+    };
+  }
+
+  @Test(dataProvider = "validMachineNames")
+  public void shouldNotFailIfMachinesNameAreValid(String machineName) throws Exception {
+    // given
+    when(environment.getMachines()).thenReturn(singletonMap(machineName, machineConfig));
+
+    // when
+    environmentValidator.validate(environment);
+  }
+
+  @DataProvider(name = "validMachineNames")
+  public Object[][] validMachineNames() {
+    return new Object[][] {
+      {"machine"}, {"machine123"}, {"machine-123"}, {"app/db"}, {"app_db"},
+    };
+  }
+
+  @Test(
+    expectedExceptions = ValidationException.class,
+    expectedExceptionsMessageRegExp =
+        "Machine '.*' in environment contains server conf '.*' with invalid port '.*'",
+    dataProvider = "invalidServerPorts"
+  )
+  public void shouldFailIfServerPortIsInvalid(String servicePort) throws Exception {
+    // given
+    ServerConfigImpl server = new ServerConfigImpl(servicePort, "https", "/some/path");
     when(machineConfig.getServers())
         .thenReturn(singletonMap(Constants.SERVER_WS_AGENT_HTTP_REFERENCE, server));
 
@@ -89,37 +144,102 @@ public class InternalEnvironmentValidatorTest {
     environmentValidator.validate(environment);
   }
 
-  @Test(
-    expectedExceptions = ValidationException.class,
-    expectedExceptionsMessageRegExp =
-        "Machine '.*' in environment contains server conf '.*' with invalid protocol '.*'"
-  )
-  public void shouldFailIfServerProtocolInMachineIsInvalid() throws Exception {
+  @DataProvider(name = "invalidServerPorts")
+  public Object[][] invalidServerPorts() {
+    return new Object[][] {
+      {"aaa"}, {"123aaa"}, {"8080/tpc2"}, {"8080/TCP"}, {"123udp"}, {""}, {"/123"},
+    };
+  }
+
+  @Test(dataProvider = "validServerPorts")
+  public void shouldNotFailIfServerPortIsValid(String servicePort) throws Exception {
     // given
-    when(machineConfig.getServers()).thenReturn(singletonMap("server1", server));
-    when(server.getProtocol()).thenReturn("0");
+    ServerConfigImpl server = new ServerConfigImpl(servicePort, "https", "/some/path");
+    when(machineConfig.getServers())
+        .thenReturn(singletonMap(Constants.SERVER_WS_AGENT_HTTP_REFERENCE, server));
 
     // when
     environmentValidator.validate(environment);
   }
 
+  @DataProvider(name = "validServerPorts")
+  public Object[][] validServerPorts() {
+    return new Object[][] {
+      {"1"}, {"12"}, {"8080"}, {"8080/tcp"}, {"8080/udp"},
+    };
+  }
+
   @Test(
     expectedExceptions = ValidationException.class,
     expectedExceptionsMessageRegExp =
-        "Environment should contain exactly 1 machine with wsagent, but contains '.*'. All machines with this agent: .*"
+        "Machine '.*' in environment contains server conf '.*' with invalid protocol '.*'",
+    dataProvider = "invalidServerProtocols"
   )
-  public void shouldFailIfThereIsMoreThan1MachineWithWsAgent() throws Exception {
-    // TODO Revert removing checking installers
+  public void shouldFailIfServerProtocolIsInvalid(String serviceProtocol) throws Exception {
     // given
-    doReturn(
-            ImmutableMap.of(
-                "machine1", machineMockWithServers(Constants.SERVER_WS_AGENT_HTTP_REFERENCE),
-                "machine2", machineMockWithServers(Constants.SERVER_WS_AGENT_HTTP_REFERENCE)))
-        .when(environment)
-        .getMachines();
+    ServerConfigImpl server = new ServerConfigImpl("8080", serviceProtocol, "/some/path");
+    when(machineConfig.getServers())
+        .thenReturn(singletonMap(Constants.SERVER_WS_AGENT_HTTP_REFERENCE, server));
 
     // when
     environmentValidator.validate(environment);
+  }
+
+  @DataProvider(name = "invalidServerProtocols")
+  public Object[][] invalidServerProtocols() {
+    return new Object[][] {{"0"}, {"0sds"}, {"TCP"}, {"UDP"}, {"http@"}};
+  }
+
+  @Test(dataProvider = "validServerProtocols")
+  public void shouldNotFailIfServerProtocolIsValid(String serviceProtocol) throws Exception {
+    // given
+    ServerConfigImpl server = new ServerConfigImpl("8080", serviceProtocol, "/some/path");
+    when(machineConfig.getServers())
+        .thenReturn(singletonMap(Constants.SERVER_WS_AGENT_HTTP_REFERENCE, server));
+
+    // when
+    environmentValidator.validate(environment);
+  }
+
+  @DataProvider(name = "validServerProtocols")
+  public Object[][] validServerProtocols() {
+    return new Object[][] {{"a"}, {"http"}, {"tcp"}, {"tcp2"}};
+  }
+
+  @Test(
+    expectedExceptions = ValidationException.class,
+    expectedExceptionsMessageRegExp =
+        "Environment should contain exactly 1 machine with wsagent, but contains '.*'. All machines with this agent: .*",
+    dataProvider = "severalWsAgentsProvider"
+  )
+  public void shouldFailIfThereIsMoreThan1MachineWithWsAgent(
+      Map<String, InternalMachineConfig> machines) throws Exception {
+    // given
+    when(environment.getMachines()).thenReturn(machines);
+
+    // when
+    environmentValidator.validate(environment);
+  }
+
+  @DataProvider(name = "severalWsAgentsProvider")
+  public static Object[][] severalWsAgentsProvider() {
+    return new Object[][] {
+      {
+        ImmutableMap.of(
+            "machine1", machineMockWithServers(Constants.SERVER_WS_AGENT_HTTP_REFERENCE),
+            "machine2", machineMockWithServers(Constants.SERVER_WS_AGENT_HTTP_REFERENCE))
+      },
+      {
+        ImmutableMap.of(
+            "machine1", machineMockWithInstallers(WsAgentMachineFinderUtil.WS_AGENT_INSTALLER),
+            "machine2", machineMockWithServers(Constants.SERVER_WS_AGENT_HTTP_REFERENCE))
+      },
+      {
+        ImmutableMap.of(
+            "machine1", machineMockWithInstallers(WsAgentMachineFinderUtil.WS_AGENT_INSTALLER),
+            "machine2", machineMockWithInstallers(WsAgentMachineFinderUtil.WS_AGENT_INSTALLER))
+      }
+    };
   }
 
   private static class TestEnvironmentValidator
@@ -146,6 +266,16 @@ public class InternalEnvironmentValidatorTest {
                 .collect(
                     Collectors.toMap(
                         Function.identity(), s -> new ServerConfigImpl("8080", "http", "/"))));
+    return mock;
+  }
+
+  private static InternalMachineConfig machineMockWithInstallers(String... servers) {
+    InternalMachineConfig mock = machineMock();
+    when(mock.getInstallers())
+        .thenReturn(
+            Arrays.stream(servers)
+                .map(s -> new InstallerImpl().withId(s))
+                .collect(Collectors.toList()));
     return mock;
   }
 }
