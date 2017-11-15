@@ -150,6 +150,7 @@ public class ProjectApiModule extends AbstractModule {
   private void configureVfsFilters(Multibinder<PathMatcher> excludeMatcher) {
     addVfsFilter(excludeMatcher, ".che");
     addVfsFilter(excludeMatcher, ".#");
+    excludeMatcher.addBinding().to(HiddenItemPathMatcher.class);
   }
 
   private void addVfsFilter(Multibinder<PathMatcher> excludeMatcher, String filter) {
