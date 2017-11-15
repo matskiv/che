@@ -23,17 +23,33 @@
         .alignLeft {
             float: left;
         }
+
+        .label {
+            float: left;
+            margin-top: 3px;
+        }
+
+        .icon {
+            float: left;
+            margin-left: 5px;
+            margin-right: 5px;
+            margin-top: -1px;
+            font-size: 16px;
+        }
     </ui:style>
-    <g:DockLayoutPanel unit="PX" width="450px" height="500px" addStyleNames="{style.emptyBorder}" debugId="git-branches-mainForm">
+    <g:DockLayoutPanel unit="PX" width="450px" height="500px" addStyleNames="{style.emptyBorder}"
+                       debugId="git-branches-mainForm">
         <g:north size="25" addStyleNames="{style.emptyBorder}">
-            <g:FlowPanel >
-                <g:Label text="{locale.branchFilterLabel}" width="85px" addStyleNames="{style.alignLeft}"/>
+            <g:FlowPanel>
+                <g:Label text="{locale.branchFilterLabel}" width="85px" addStyleNames="{style.label}"/>
                 <g:ListBox ui:field="filter" width="80px" addStyleNames="{style.alignLeft}"/>
-                <g:Label ui:field="label" addStyleNames="{style.alignLeft}"/>
+                <g:Label ui:field="searchIcon" addStyleNames="{style.icon}"/>
+                <g:Label ui:field="label" addStyleNames="{style.label}"/>
             </g:FlowPanel>
         </g:north>
         <g:center>
-            <g:ScrollPanel ui:field="branchesPanel" addStyleNames="{res.gitCSS.simpleListContainer}" debugId="git-branches-branchesPanel"/>
+            <g:ScrollPanel ui:field="branchesPanel" addStyleNames="{res.gitCSS.simpleListContainer}"
+                           debugId="git-branches-branchesPanel"/>
         </g:center>
     </g:DockLayoutPanel>
 </ui:UiBinder>

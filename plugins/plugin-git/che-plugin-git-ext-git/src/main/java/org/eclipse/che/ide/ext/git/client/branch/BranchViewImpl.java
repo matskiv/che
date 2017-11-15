@@ -25,12 +25,12 @@ import elemental.dom.Element;
 import elemental.html.TableCellElement;
 import elemental.html.TableElement;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.validation.constraints.NotNull;
 import org.eclipse.che.api.git.shared.Branch;
+import org.eclipse.che.ide.FontAwesome;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.GitResources;
 import org.eclipse.che.ide.ui.dialogs.DialogFactory;
@@ -60,6 +60,7 @@ public class BranchViewImpl extends Window implements BranchView {
   @UiField ScrollPanel branchesPanel;
   @UiField ListBox filter;
   @UiField Label label;
+  @UiField Label searchIcon;
 
   @UiField(provided = true)
   final GitResources res;
@@ -68,10 +69,9 @@ public class BranchViewImpl extends Window implements BranchView {
   final GitLocalizationConstant locale;
 
   private final DialogFactory dialogFactory;
-  private FilterableSimpleList branches;
+  private FilterableSimpleList filterableBranchesList;
   private ActionDelegate delegate;
 
-  /** Create presenter. */
   @Inject
   protected BranchViewImpl(
       GitResources resources,
@@ -87,13 +87,14 @@ public class BranchViewImpl extends Window implements BranchView {
 
     this.setTitle(locale.branchTitle());
     this.setWidget(widget);
+    this.searchIcon.getElement().setInnerHTML(FontAwesome.SEARCH);
 
     TableElement breakPointsElement = Elements.createTableElement();
     breakPointsElement.setAttribute("style", "width: 100%");
     SimpleList.ListEventDelegate<Branch> listBranchesDelegate =
         new SimpleList.ListEventDelegate<Branch>() {
           public void onListItemClicked(Element itemElement, Branch itemData) {
-            branches.getSelectionModel().setSelectedItem(itemData);
+            filterableBranchesList.getSelectionModel().setSelectedItem(itemData);
             delegate.onBranchSelected(itemData);
           }
 
@@ -134,27 +135,29 @@ public class BranchViewImpl extends Window implements BranchView {
             return Elements.createTRElement();
           }
         };
-    branches =
-        new FilterableSimpleList<>(
+    filterableBranchesList =
+        FilterableSimpleList.create(
             (SimpleList.View) breakPointsElement,
             coreRes.defaultSimpleListCss(),
             coreRes.defaultFilterableListCss(),
             listBranchesRenderer,
             listBranchesDelegate,
-            new FilterableSimpleList.Delegate() {
-              @Override
-              public void onFilterChanged(String filter) {
-                delegate.onFilterChanged(filter);
-              }
-            });
+            this::onFilterChanged);
 
-    this.branchesPanel.add(branches);
+    this.branchesPanel.add(filterableBranchesList);
 
     this.filter.addItem("All", "all");
     this.filter.addItem("Local", "local");
     this.filter.addItem("Remote", "remote");
 
     createButtons();
+  }
+
+  private void onFilterChanged(String filter) {
+    if (filterableBranchesList.getSelectionModel().getSelectedItem() == null) {
+      delegate.onBranchUnselected();
+    }
+    delegate.onFilterChanged(filter);
   }
 
   @UiHandler("filter")
@@ -164,68 +167,28 @@ public class BranchViewImpl extends Window implements BranchView {
 
   private void createButtons() {
     btnClose =
-        createButton(
-            locale.buttonClose(),
-            "git-branches-close",
-            new ClickHandler() {
-
-              @Override
-              public void onClick(ClickEvent event) {
-                delegate.onCloseClicked();
-              }
-            });
+        createButton(locale.buttonClose(), "git-branches-close", event -> delegate.onClose());
     addButtonToFooter(btnClose);
 
     btnRename =
         createButton(
-            locale.buttonRename(),
-            "git-branches-rename",
-            new ClickHandler() {
-
-              @Override
-              public void onClick(ClickEvent event) {
-                delegate.onRenameClicked();
-              }
-            });
+            locale.buttonRename(), "git-branches-rename", event -> delegate.onRenameClicked());
     addButtonToFooter(btnRename);
 
     btnDelete =
-        createButton(
-            locale.buttonDelete(),
-            "git-branches-delete",
-            new ClickHandler() {
-
-              @Override
-              public void onClick(ClickEvent event) {
-                onDeleteClicked();
-              }
-            });
+        createButton(locale.buttonDelete(), "git-branches-delete", event -> onDeleteClicked());
     addButtonToFooter(btnDelete);
 
     btnCreate =
         createButton(
-            locale.buttonCreate(),
-            "git-branches-create",
-            new ClickHandler() {
-
-              @Override
-              public void onClick(ClickEvent event) {
-                delegate.onCreateClicked();
-              }
-            });
+            locale.buttonCreate(), "git-branches-create", event -> delegate.onCreateClicked());
     addButtonToFooter(btnCreate);
 
     btnCheckout =
         createButton(
             locale.buttonCheckout(),
             "git-branches-checkout",
-            new ClickHandler() {
-
-              @Override
-              public void onClick(ClickEvent event) {
-                delegate.onCheckoutClicked();
-              }
-            });
+            event -> delegate.onCheckoutClicked());
     addButtonToFooter(btnCheckout);
   }
 
@@ -233,13 +196,10 @@ public class BranchViewImpl extends Window implements BranchView {
     dialogFactory
         .createConfirmDialog(
             locale.branchDelete(),
-            "", // locale.branchDeleteAsk(branches.getSelectionModel().getSelectedItem().getName()),
-            new ConfirmCallback() {
-              @Override
-              public void accepted() {
-                delegate.onDeleteClicked();
-              }
-            },
+            locale.branchDeleteAsk(
+                ((Branch) filterableBranchesList.getSelectionModel().getSelectedItem())
+                    .getDisplayName()),
+            () -> delegate.onDeleteClicked(),
             null)
         .show();
   }
@@ -247,7 +207,7 @@ public class BranchViewImpl extends Window implements BranchView {
   @Override
   protected void onEnterClicked() {
     if (isWidgetFocused(btnClose)) {
-      delegate.onCloseClicked();
+      delegate.onClose();
       return;
     }
 
@@ -271,35 +231,30 @@ public class BranchViewImpl extends Window implements BranchView {
     }
   }
 
-  /** {@inheritDoc} */
   @Override
   public void setDelegate(ActionDelegate delegate) {
     this.delegate = delegate;
   }
 
-  /** {@inheritDoc} */
   @Override
   public void setBranches(@NotNull List<Branch> branches) {
-      Map<String, Branch> collect = branches.stream().collect(Collectors.toMap(Branch::getDisplayName, branch -> branch));
-      this.branches.render(collect);
-    if (this.branches.getSelectionModel().getSelectedItem() == null) {
+    filterableBranchesList.render(
+        branches.stream().collect(Collectors.toMap(Branch::getDisplayName, branch -> branch)));
+    if (filterableBranchesList.getSelectionModel().getSelectedItem() == null) {
       delegate.onBranchUnselected();
     }
   }
 
-  /** {@inheritDoc} */
   @Override
   public void setEnableDeleteButton(boolean enabled) {
     btnDelete.setEnabled(enabled);
   }
 
-  /** {@inheritDoc} */
   @Override
   public void setEnableCheckoutButton(boolean enabled) {
     btnCheckout.setEnabled(enabled);
   }
 
-  /** {@inheritDoc} */
   @Override
   public void setEnableRenameButton(boolean enabled) {
     btnRename.setEnabled(enabled);
@@ -310,22 +265,33 @@ public class BranchViewImpl extends Window implements BranchView {
     return filter.getSelectedValue();
   }
 
-  /** {@inheritDoc} */
   @Override
   public void close() {
     this.hide();
   }
 
-  /** {@inheritDoc} */
   @Override
   public void showDialogIfClosed() {
     if (!super.isShowing()) {
       this.show(btnCreate);
+      searchIcon.setVisible(false);
     }
   }
 
   @Override
   public void setFilterContent(String content) {
+    searchIcon.setVisible(!content.isEmpty());
     label.setText(content);
+  }
+
+  @Override
+  public void clearFilter() {
+    filterableBranchesList.clearFilter();
+    searchIcon.setVisible(false);
+  }
+
+  @Override
+  public void onClose() {
+    delegate.onClose();
   }
 }

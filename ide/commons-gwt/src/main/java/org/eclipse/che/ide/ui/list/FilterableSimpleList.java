@@ -7,30 +7,20 @@
  */
 package org.eclipse.che.ide.ui.list;
 
-import com.google.gwt.event.dom.client.*;
 import com.google.gwt.resources.client.ClientBundle;
 import com.google.gwt.resources.client.CssResource;
 import com.google.gwt.user.client.ui.FocusPanel;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class FilterableSimpleList<M> extends FocusPanel {
-  private SimpleList<M> simpleList;
-  private HasSelection<M> selectionModel;
-
-  private StringBuilder stringBuilder;
-  private List<M> items;
   private Map<String, M> map;
+  private SimpleList<M> simpleList;
+  private StringBuilder stringBuilder;
 
   public interface Delegate {
     void onFilterChanged(String filter);
-  }
-
-  public interface FilterableItem {
-    String getName();
   }
 
   public FilterableSimpleList(
@@ -44,48 +34,60 @@ public class FilterableSimpleList<M> extends FocusPanel {
     simpleList = SimpleList.create(view, css, itemRenderer, eventDelegate);
     addStyleName(thisCss.container());
     addKeyDownHandler(
-        new KeyDownHandler() {
-          @Override
-          public void onKeyDown(KeyDownEvent keyDownEvent) {
-            if (keyDownEvent.getNativeEvent().getKeyCode() == 8) {
-              stringBuilder.deleteCharAt(stringBuilder.length() - 1);
-              delegate.onFilterChanged(stringBuilder.toString());
-              update();
-            }
+        keyDownEvent -> {
+          int keyCode = keyDownEvent.getNativeEvent().getKeyCode();
+          if (keyCode == 8) {
+            stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+            delegate.onFilterChanged(stringBuilder.toString());
+            filter();
+          } else if (keyCode == 27 && !stringBuilder.toString().isEmpty()) {
+            stringBuilder.delete(0, stringBuilder.length() + 1);
+            keyDownEvent.stopPropagation();
+            delegate.onFilterChanged("");
+            filter();
           }
         });
     addKeyPressHandler(
-        new KeyPressHandler() {
-          @Override
-          public void onKeyPress(KeyPressEvent keyPressEvent) {
-            stringBuilder.append(String.valueOf(keyPressEvent.getCharCode()));
-            delegate.onFilterChanged(stringBuilder.toString());
-            update();
-          }
+        keyPressEvent -> {
+          stringBuilder.append(String.valueOf(keyPressEvent.getCharCode()));
+          delegate.onFilterChanged(stringBuilder.toString());
+          filter();
         });
     add(simpleList);
     stringBuilder = new StringBuilder();
   }
 
-  public void render(Map<String, M> map) {
-    this.map = map;
-    simpleList.render(new ArrayList<>(map.values()));
+  public static <M> FilterableSimpleList<M> create(
+      SimpleList.View view,
+      SimpleList.Css simpleListCss,
+      Css filterableListCss,
+      SimpleList.ListItemRenderer<M> itemRenderer,
+      SimpleList.ListEventDelegate<M> eventDelegate,
+      Delegate delegate) {
+    return new FilterableSimpleList<>(
+        view, simpleListCss, filterableListCss,itemRenderer, eventDelegate, delegate);
   }
 
-  public void update() {
-    List<M> collect =
-        this.map
-            .keySet()
+  public void render(Map<String, M> map) {
+    this.map = map;
+    filter();
+  }
+
+  private void filter() {
+    simpleList.render(
+        map.keySet()
             .stream()
             .filter(name -> name.startsWith(stringBuilder.toString()))
             .map(name -> map.get(name))
-            .collect(Collectors.toList());
-    simpleList.render(collect);
+            .collect(Collectors.toList()));
+  }
+
+  public void clearFilter() {
+    stringBuilder.delete(0, stringBuilder.length() + 1);
   }
 
   public HasSelection getSelectionModel() {
-    selectionModel = simpleList.getSelectionModel();
-    return selectionModel;
+    return simpleList.getSelectionModel();
   }
 
   /** Item style selectors for a simple list item. */

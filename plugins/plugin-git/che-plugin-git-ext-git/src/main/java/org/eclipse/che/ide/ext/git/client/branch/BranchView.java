@@ -22,9 +22,9 @@ import org.eclipse.che.ide.api.mvp.View;
  */
 public interface BranchView extends View<BranchView.ActionDelegate> {
   /** Needs for delegate some function into Branch view. */
-  public interface ActionDelegate {
-    /** Performs any actions appropriate in response to the user having pressed the Close button. */
-    void onCloseClicked();
+  interface ActionDelegate {
+    /** Performs any actions appropriate in response to the user having pressed the Close action. */
+    void onClose();
 
     /**
      * Performs any actions appropriate in response to the user having pressed the Rename button.
@@ -100,4 +100,6 @@ public interface BranchView extends View<BranchView.ActionDelegate> {
   void showDialogIfClosed();
 
   void setFilterContent(String content);
+
+  void clearFilter();
 }

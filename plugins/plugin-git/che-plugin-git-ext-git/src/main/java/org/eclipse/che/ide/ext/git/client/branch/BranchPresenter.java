@@ -54,7 +54,6 @@ public class BranchPresenter implements BranchView.ActionDelegate {
   private final DialogFactory dialogFactory;
   private final GitServiceClient service;
   private final GitLocalizationConstant constant;
-  private final AppContext appContext;
   private final NotificationManager notificationManager;
 
   private Branch selectedBranch;
@@ -67,7 +66,6 @@ public class BranchPresenter implements BranchView.ActionDelegate {
       DtoFactory dtoFactory,
       GitServiceClient service,
       GitLocalizationConstant constant,
-      AppContext appContext,
       NotificationManager notificationManager,
       GitOutputConsoleFactory gitOutputConsoleFactory,
       ProcessesPanelPresenter processesPanelPresenter,
@@ -80,7 +78,6 @@ public class BranchPresenter implements BranchView.ActionDelegate {
     this.view.setDelegate(this);
     this.service = service;
     this.constant = constant;
-    this.appContext = appContext;
     this.notificationManager = notificationManager;
   }
 
@@ -91,8 +88,10 @@ public class BranchPresenter implements BranchView.ActionDelegate {
   }
 
   @Override
-  public void onCloseClicked() {
+  public void onClose() {
     view.close();
+    view.setFilterContent("");
+    view.clearFilter();
   }
 
   @Override
