@@ -61,7 +61,7 @@ public class BranchPresenter implements BranchView.ActionDelegate {
 
   /** Create presenter. */
   @Inject
-  public BranchPresenter(
+  BranchPresenter(
       BranchView view,
       DtoFactory dtoFactory,
       GitServiceClient service,

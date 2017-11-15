@@ -42,9 +42,9 @@
         <g:north size="25" addStyleNames="{style.emptyBorder}">
             <g:FlowPanel>
                 <g:Label text="{locale.branchFilterLabel}" width="85px" addStyleNames="{style.label}"/>
-                <g:ListBox ui:field="filter" width="80px" addStyleNames="{style.alignLeft}"/>
-                <g:Label ui:field="searchIcon" addStyleNames="{style.icon}"/>
-                <g:Label ui:field="label" addStyleNames="{style.label}"/>
+                <g:ListBox ui:field="localRemoteFilter" width="80px" addStyleNames="{style.alignLeft}"/>
+                <g:Label ui:field="searchFilterIcon" addStyleNames="{style.icon}"/>
+                <g:Label ui:field="searchFilterLabel" addStyleNames="{style.label}"/>
             </g:FlowPanel>
         </g:north>
         <g:center>

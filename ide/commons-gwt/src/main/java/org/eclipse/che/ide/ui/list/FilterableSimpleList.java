@@ -23,7 +23,7 @@ public class FilterableSimpleList<M> extends FocusPanel {
     void onFilterChanged(String filter);
   }
 
-  public FilterableSimpleList(
+  private FilterableSimpleList(
       SimpleList.View view,
       SimpleList.Css css,
       Css thisCss,
@@ -65,7 +65,7 @@ public class FilterableSimpleList<M> extends FocusPanel {
       SimpleList.ListEventDelegate<M> eventDelegate,
       Delegate delegate) {
     return new FilterableSimpleList<>(
-        view, simpleListCss, filterableListCss,itemRenderer, eventDelegate, delegate);
+        view, simpleListCss, filterableListCss, itemRenderer, eventDelegate, delegate);
   }
 
   public void render(Map<String, M> map) {
@@ -86,7 +86,7 @@ public class FilterableSimpleList<M> extends FocusPanel {
     stringBuilder.delete(0, stringBuilder.length() + 1);
   }
 
-  public HasSelection getSelectionModel() {
+  public HasSelection<M> getSelectionModel() {
     return simpleList.getSelectionModel();
   }
 

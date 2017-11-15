@@ -12,8 +12,6 @@ package org.eclipse.che.ide.ext.git.client.branch;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ChangeEvent;
-import com.google.gwt.event.dom.client.ClickEvent;
-import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.safehtml.shared.SafeHtmlBuilder;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
@@ -26,7 +24,6 @@ import elemental.html.TableCellElement;
 import elemental.html.TableElement;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import javax.validation.constraints.NotNull;
 import org.eclipse.che.api.git.shared.Branch;
@@ -34,7 +31,6 @@ import org.eclipse.che.ide.FontAwesome;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.GitResources;
 import org.eclipse.che.ide.ui.dialogs.DialogFactory;
-import org.eclipse.che.ide.ui.dialogs.confirm.ConfirmCallback;
 import org.eclipse.che.ide.ui.list.FilterableSimpleList;
 import org.eclipse.che.ide.ui.list.SimpleList;
 import org.eclipse.che.ide.ui.window.Window;
@@ -58,9 +54,9 @@ public class BranchViewImpl extends Window implements BranchView {
   Button btnCreate;
   Button btnCheckout;
   @UiField ScrollPanel branchesPanel;
-  @UiField ListBox filter;
-  @UiField Label label;
-  @UiField Label searchIcon;
+  @UiField ListBox localRemoteFilter;
+  @UiField Label searchFilterLabel;
+  @UiField Label searchFilterIcon;
 
   @UiField(provided = true)
   final GitResources res;
@@ -69,7 +65,7 @@ public class BranchViewImpl extends Window implements BranchView {
   final GitLocalizationConstant locale;
 
   private final DialogFactory dialogFactory;
-  private FilterableSimpleList filterableBranchesList;
+  private FilterableSimpleList<Branch> branchesList;
   private ActionDelegate delegate;
 
   @Inject
@@ -87,14 +83,14 @@ public class BranchViewImpl extends Window implements BranchView {
 
     this.setTitle(locale.branchTitle());
     this.setWidget(widget);
-    this.searchIcon.getElement().setInnerHTML(FontAwesome.SEARCH);
+    this.searchFilterIcon.getElement().setInnerHTML(FontAwesome.SEARCH);
 
-    TableElement breakPointsElement = Elements.createTableElement();
-    breakPointsElement.setAttribute("style", "width: 100%");
+    TableElement branchElement = Elements.createTableElement();
+    branchElement.setAttribute("style", "width: 100%");
     SimpleList.ListEventDelegate<Branch> listBranchesDelegate =
         new SimpleList.ListEventDelegate<Branch>() {
           public void onListItemClicked(Element itemElement, Branch itemData) {
-            filterableBranchesList.getSelectionModel().setSelectedItem(itemData);
+            branchesList.getSelectionModel().setSelectedItem(itemData);
             delegate.onBranchSelected(itemData);
           }
 
@@ -135,32 +131,31 @@ public class BranchViewImpl extends Window implements BranchView {
             return Elements.createTRElement();
           }
         };
-    filterableBranchesList =
+    branchesList =
         FilterableSimpleList.create(
-            (SimpleList.View) breakPointsElement,
+            (SimpleList.View) branchElement,
             coreRes.defaultSimpleListCss(),
             coreRes.defaultFilterableListCss(),
             listBranchesRenderer,
             listBranchesDelegate,
             this::onFilterChanged);
+    this.branchesPanel.add(branchesList);
 
-    this.branchesPanel.add(filterableBranchesList);
-
-    this.filter.addItem("All", "all");
-    this.filter.addItem("Local", "local");
-    this.filter.addItem("Remote", "remote");
+    this.localRemoteFilter.addItem("All", "all");
+    this.localRemoteFilter.addItem("Local", "local");
+    this.localRemoteFilter.addItem("Remote", "remote");
 
     createButtons();
   }
 
   private void onFilterChanged(String filter) {
-    if (filterableBranchesList.getSelectionModel().getSelectedItem() == null) {
+    if (branchesList.getSelectionModel().getSelectedItem() == null) {
       delegate.onBranchUnselected();
     }
     delegate.onFilterChanged(filter);
   }
 
-  @UiHandler("filter")
+  @UiHandler("localRemoteFilter")
   public void onFilterChanged(ChangeEvent event) {
     delegate.onFilterValueChanged();
   }
@@ -197,8 +192,7 @@ public class BranchViewImpl extends Window implements BranchView {
         .createConfirmDialog(
             locale.branchDelete(),
             locale.branchDeleteAsk(
-                ((Branch) filterableBranchesList.getSelectionModel().getSelectedItem())
-                    .getDisplayName()),
+                ((Branch) branchesList.getSelectionModel().getSelectedItem()).getDisplayName()),
             () -> delegate.onDeleteClicked(),
             null)
         .show();
@@ -238,9 +232,9 @@ public class BranchViewImpl extends Window implements BranchView {
 
   @Override
   public void setBranches(@NotNull List<Branch> branches) {
-    filterableBranchesList.render(
+    branchesList.render(
         branches.stream().collect(Collectors.toMap(Branch::getDisplayName, branch -> branch)));
-    if (filterableBranchesList.getSelectionModel().getSelectedItem() == null) {
+    if (branchesList.getSelectionModel().getSelectedItem() == null) {
       delegate.onBranchUnselected();
     }
   }
@@ -262,7 +256,7 @@ public class BranchViewImpl extends Window implements BranchView {
 
   @Override
   public String getFilterValue() {
-    return filter.getSelectedValue();
+    return localRemoteFilter.getSelectedValue();
   }
 
   @Override
@@ -274,20 +268,21 @@ public class BranchViewImpl extends Window implements BranchView {
   public void showDialogIfClosed() {
     if (!super.isShowing()) {
       this.show(btnCreate);
-      searchIcon.setVisible(false);
+      branchesList.setFocus(true);
+      searchFilterIcon.setVisible(false);
     }
   }
 
   @Override
   public void setFilterContent(String content) {
-    searchIcon.setVisible(!content.isEmpty());
-    label.setText(content);
+    searchFilterIcon.setVisible(!content.isEmpty());
+    searchFilterLabel.setText(content);
   }
 
   @Override
   public void clearFilter() {
-    filterableBranchesList.clearFilter();
-    searchIcon.setVisible(false);
+    branchesList.clearFilter();
+    searchFilterIcon.setVisible(false);
   }
 
   @Override
